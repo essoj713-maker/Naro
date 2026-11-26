@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Naro",
+    "slug": "naro-app-youssef",
+    "owner": "yossefjoos-team",
+    "android": {
+      "package": "com.youssef.naroapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "36d9d0d5-b91f-41bb-a335-6c033cad28f2"
+      }
+    }
+  }
+}
