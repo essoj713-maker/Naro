@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Naro",
+    "slug": "naro-app-youssef",
+    "android": {
+      "package": "com.youssef.naroapp"
+    }
+  }
+}
