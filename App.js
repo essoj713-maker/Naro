@@ -4,8 +4,11 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { SvgXml } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { auth, ready } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { ADMIN_UID } from './config';
+import { Login, Pending } from './Auth';
+import { auth, db, ready } from './firebase';
 import { BGS, ICONS } from './art';
 import { Naro } from './ui';
 import Chat from './Chat';
@@ -21,16 +24,16 @@ export default function App() {
   const [tab, setTab] = useState('naro');
   const [prefs, setPrefs] = useState({ char: 0, bg: 2, name: '' });
   const [user, setUser] = useState(null);
-  const [isAdmin, setAdmin] = useState(false);
+  const [status, setStatus] = useState('loading');
   const [msgs, setMsgs] = useState([]);
   useEffect(() => { AsyncStorage.getItem('prefs').then((v) => v && setPrefs((p) => ({ ...p, ...JSON.parse(v) }))).catch(() => {}); }, []);
+  useEffect(() => ready ? onAuthStateChanged(auth, (u) => { setStatus('loading'); setUser(u); setMsgs([]); setTab('naro'); }) : undefined, []);
+  const isAdmin = !!user && user.uid === ADMIN_UID;   // الحماية الحقيقية في firestore.rules
   useEffect(() => {
-    if (!ready) return;
-    return onAuthStateChanged(auth, (u) => {
-      if (!u) { setUser(null); setAdmin(false); signInAnonymously(auth).catch(() => {}); return; }
-      setUser(u); setAdmin(!u.isAnonymous);   // الصلاحية الحقيقية في firestore.rules
-    });
-  }, []);
+    if (!user || isAdmin) return;
+    return onSnapshot(doc(db, 'users', user.uid), (d) => setStatus(d.exists() ? d.data().status : 'missing'), () => setStatus('pending'));
+  }, [user, isAdmin]);
+  const allowed = !!user && (isAdmin || status === 'approved');
   const save = (patch) => setPrefs((p) => { const n = { ...p, ...patch }; AsyncStorage.setItem('prefs', JSON.stringify(n)).catch(() => {}); return n; });
   const bg = BGS[prefs.bg];
   const screen = {
@@ -48,13 +51,13 @@ export default function App() {
         <StatusBar style={bg.dark ? 'light' : 'dark'} />
         <SafeAreaView style={{ flex: 1 }}>
           <View style={st.header}><Naro i={prefs.char} size={44} /><Text style={st.title}>Naro</Text></View>
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>{screen}</KeyboardAvoidingView>
-          <View style={st.bar}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>{allowed ? screen : !user ? <Login /> : status === 'loading' ? null : <Pending user={user} status={status} />}</KeyboardAvoidingView>
+          {allowed && <View style={st.bar}>
             {TABS.map(([k, label]) => {
               const c = tab === k ? '#0F6B4E' : '#777';
               return <Pressable key={k} onPress={() => setTab(k)} style={st.tab}><SvgXml xml={ICONS[k](c)} width={26} height={26} /><Text style={{ color: c, fontSize: 11 }}>{label}</Text></Pressable>;
             })}
-          </View>
+          </View>}
         </SafeAreaView>
       </View>
     </SafeAreaProvider>
